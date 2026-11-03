@@ -11,11 +11,7 @@ public class CamaraSeguir : MonoBehaviour
     {
         if (objetivo != null)
         {
-<<<<<<< Updated upstream
-            // Calcular la posición deseada de la cámara 
-=======
             // Calcular la posición deseada de la cámara (detrás y arriba de la abeja)
->>>>>>> Stashed changes
             Vector3 posicionDeseada = objetivo.position - objetivo.forward * distancia + Vector3.up * altura;
             
             // Mover la cámara suavemente hacia esa posición

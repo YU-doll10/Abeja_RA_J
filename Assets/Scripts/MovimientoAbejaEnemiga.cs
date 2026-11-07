@@ -7,19 +7,23 @@ public class MovimientoAbejaEnemiga : MonoBehaviour
     public Transform objetivo;
     public float velocidad = 8f;
     public float velocidadGiro = 150f;
-    public float distanciaMinima = 4f;
+    public float distanciaMinima = 0.5f;
     public float alturaSobreTerreno = 1.5f;
 
     private Rigidbody rb;
     private MovimientoAbeja3D animacionAbeja;
     private CapsuleCollider colision;
     private Terrain terreno;
+    private bool persecucionIniciada;
 
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
         animacionAbeja = GetComponent<MovimientoAbeja3D>();
         animacionAbeja.controlJugador = false;
+        VidasAbeja vidas = GetComponent<VidasAbeja>();
+        if (vidas == null) vidas = gameObject.AddComponent<VidasAbeja>();
+        vidas.Inicializar(false);
         colision = GetComponent<CapsuleCollider>();
         terreno = Terrain.activeTerrain != null ? Terrain.activeTerrain : FindFirstObjectByType<Terrain>();
         rb.useGravity = false;
@@ -51,6 +55,12 @@ public class MovimientoAbejaEnemiga : MonoBehaviour
     void FixedUpdate()
     {
         if (objetivo == null || rb == null) return;
+        if (!persecucionIniciada)
+        {
+            MovimientoAbeja3D controlJugador = objetivo.GetComponent<MovimientoAbeja3D>();
+            if (controlJugador == null || !controlJugador.SeMovio) return;
+            persecucionIniciada = true;
+        }
         Vector3 haciaObjetivo = objetivo.position - rb.position;
         if (haciaObjetivo.magnitude <= distanciaMinima) return;
 
@@ -89,5 +99,8 @@ public class MovimientoAbejaEnemiga : MonoBehaviour
         rb.MovePosition(siguiente);
     }
 }
+
+
+
 
 

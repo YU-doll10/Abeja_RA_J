@@ -18,11 +18,16 @@ public class MovimientoAbeja3D : MonoBehaviour
     private Transform alaDerecha;
     private Quaternion rotacionBaseIzquierda;
     private Quaternion rotacionBaseDerecha;
+    public bool SeMovio { get; private set; }
 
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
         terreno = Terrain.activeTerrain != null ? Terrain.activeTerrain : FindFirstObjectByType<Terrain>();
+        VidasAbeja vidas = GetComponent<VidasAbeja>();
+        if (vidas == null) vidas = gameObject.AddComponent<VidasAbeja>();
+        vidas.Inicializar(controlJugador);
+        if (controlJugador && GetComponent<DisparoAbeja>() == null) gameObject.AddComponent<DisparoAbeja>();
         PrepararColision();
         BuscarAlas();
         if (alaIzquierda != null) rotacionBaseIzquierda = alaIzquierda.localRotation;
@@ -102,33 +107,44 @@ public class MovimientoAbeja3D : MonoBehaviour
         if (!controlJugador || rb == null) return;
         float giro = Input.GetAxis("Horizontal");
         float avance = Input.GetAxis("Vertical");
+        bool subir = Input.GetKey(KeyCode.Space);
+        bool bajar = Input.GetKey(KeyCode.LeftShift);
+        if (Mathf.Abs(avance) > 0.1f || subir || bajar) SeMovio = true;
         Quaternion rotacionSiguiente = rb.rotation * Quaternion.Euler(0f, giro * velocidadGiro * Time.fixedDeltaTime, 0f);
         rb.MoveRotation(rotacionSiguiente);
         Vector3 movimiento = rotacionSiguiente * Vector3.forward * avance * velocidad * Time.fixedDeltaTime;
-        if (Input.GetKey(KeyCode.Space)) movimiento.y = velocidad * Time.fixedDeltaTime;
-        else if (Input.GetKey(KeyCode.LeftShift)) movimiento.y = -velocidad * Time.fixedDeltaTime;
+        if (subir) movimiento.y = velocidad * Time.fixedDeltaTime;
+        else if (bajar) movimiento.y = -velocidad * Time.fixedDeltaTime;
         Vector3 siguientePosicion = rb.position + movimiento;
         if (terreno != null && terreno.terrainData != null) siguientePosicion = MantenerSobreTerreno(siguientePosicion);
         rb.MovePosition(siguientePosicion);
     }
     private Vector3 MantenerSobreTerreno(Vector3 posicion)
     {
-        Vector3 local = terreno.transform.InverseTransformPoint(posicion);
+        Vector3 centroOffset = colisionAbeja != null ? transform.TransformVector(colisionAbeja.center) : Vector3.zero;
+        Vector3 centroMundo = posicion + centroOffset;
+        Vector3 local = terreno.transform.InverseTransformPoint(centroMundo);
         Vector3 tamano = terreno.terrainData.size;
-        local.x = Mathf.Clamp(local.x, 0f, tamano.x);
-        local.z = Mathf.Clamp(local.z, 0f, tamano.z);
-        float radio = Mathf.Clamp(radioEsquinasTerreno, 0f, Mathf.Min(tamano.x, tamano.z) * 0.25f);
-        Vector2 punto = ProyectarDentroDeEsquinasRedondeadas(new Vector2(local.x, local.z), tamano.x, tamano.z, radio);
-        local.x = punto.x; local.z = punto.y;
-        Vector3 limitada = terreno.transform.TransformPoint(local);
-        float alturaSuelo = terreno.SampleHeight(limitada) + terreno.transform.position.y;
-        float escalaY = Mathf.Abs(transform.lossyScale.y);
-        float medioAlto = colisionAbeja != null ? colisionAbeja.height * escalaY * 0.5f : 0f;
-        float centroY = colisionAbeja != null ? colisionAbeja.center.y * escalaY : 0f;
-        limitada.y = Mathf.Max(posicion.y, alturaSuelo + alturaSobreTerreno + medioAlto - centroY);
+        Vector3 escalaX = terreno.transform.TransformVector(Vector3.right);
+        Vector3 escalaZ = terreno.transform.TransformVector(Vector3.forward);
+        float margenMundoX = colisionAbeja != null ? Mathf.Max(colisionAbeja.bounds.extents.x, colisionAbeja.bounds.extents.z) : 0f;
+        float margenMundoZ = margenMundoX;
+        float margenX = margenMundoX / Mathf.Max(escalaX.magnitude, 0.0001f);
+        float margenZ = margenMundoZ / Mathf.Max(escalaZ.magnitude, 0.0001f);
+        local.x = Mathf.Clamp(local.x, margenX, tamano.x - margenX);
+        local.z = Mathf.Clamp(local.z, margenZ, tamano.z - margenZ);
+        float radioEsquina = Mathf.Clamp(radioEsquinasTerreno, 0f, Mathf.Min(tamano.x, tamano.z) * 0.25f);
+        float radioCentro = Mathf.Max(0f, radioEsquina - Mathf.Max(margenX, margenZ));
+        Vector2 punto = ProyectarDentroDeEsquinasRedondeadas(new Vector2(local.x, local.z), tamano.x, tamano.z, radioCentro);
+        local.x = punto.x;
+        local.z = punto.y;
+        Vector3 centroLimitado = terreno.transform.TransformPoint(local);
+        float alturaSuelo = terreno.SampleHeight(centroLimitado) + terreno.transform.position.y;
+        float medioAlto = colisionAbeja != null ? colisionAbeja.bounds.extents.y : 0f;
+        Vector3 limitada = centroLimitado - centroOffset;
+        limitada.y = Mathf.Max(posicion.y, alturaSuelo + alturaSobreTerreno + medioAlto - centroOffset.y);
         return limitada;
     }
-
     private Vector2 ProyectarDentroDeEsquinasRedondeadas(Vector2 punto, float ancho, float fondo, float radio)
     {
         bool izquierda = punto.x < radio, derecha = punto.x > ancho - radio;
@@ -140,5 +156,8 @@ public class MovimientoAbeja3D : MonoBehaviour
         return punto;
     }
 }
+
+
+
 
 

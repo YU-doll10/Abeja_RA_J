@@ -1,12 +1,5 @@
 fileFormatVersion: 2
 guid: 73fc3b6b4f238f345b683df571dc61d6
-AssetOrigin:
-  serializedVersion: 1
-  productId: 325074
-  packageName: 'DEMO: Low Poly Flower Pack'
-  packageVersion: 1.0
-  assetPath: Assets/Emilulz_Assets/DEMOLowPolyFlowers/Assets/DEMOAtlas_Flowerpack.png
-  uploadId: 770978
 TextureImporter:
   internalIDToNameTable: []
   externalObjects: {}
@@ -59,7 +52,7 @@ TextureImporter:
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
-  alphaIsTransparency: 1
+  alphaIsTransparency: 0
   spriteTessellationDetail: -1
   textureType: 0
   textureShape: 1
@@ -122,3 +115,10 @@ TextureImporter:
   userData: 
   assetBundleName: 
   assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 325074
+  packageName: 'DEMO: Low Poly Flower Pack'
+  packageVersion: 1.0
+  assetPath: Assets/Emilulz_Assets/DEMOLowPolyFlowers/Assets/DEMOAtlas_Flowerpack.png
+  uploadId: 770978

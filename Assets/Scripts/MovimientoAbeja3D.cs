@@ -10,6 +10,7 @@ public class MovimientoAbeja3D : MonoBehaviour
     public float radioEsquinasTerreno = 30f;
     public float frecuenciaAlas = 22f;
     public float anguloAleteo = 32f;
+    public AudioClip sonidoDisparo;
 
     private Rigidbody rb;
     private Terrain terreno;
@@ -156,6 +157,7 @@ public class MovimientoAbeja3D : MonoBehaviour
         return punto;
     }
 }
+
 
 
 

@@ -12,12 +12,36 @@ public class DisparoAbeja : MonoBehaviour
     private CapsuleCollider colisionAbeja;
     private float siguienteDisparo;
     private static Material materialAzul;
+    private AudioSource audioDisparo;
+    private AudioClip sonidoDisparo;
+    private const float volumenSonidoDisparo = 1.5f;
 
     void Awake()
     {
         movimiento = GetComponent<MovimientoAbeja3D>();
         vidas = GetComponent<VidasAbeja>();
         colisionAbeja = GetComponent<CapsuleCollider>();
+        sonidoDisparo = movimiento != null ? movimiento.sonidoDisparo : null;
+        if (sonidoDisparo != null && sonidoDisparo.loadState != AudioDataLoadState.Loaded)
+            sonidoDisparo.LoadAudioData();
+
+        // Reproduce el efecto desde la cámara para evitar que la escala o distancia
+        // de la abeja reduzca el volumen en escenas con objetos muy grandes.
+        AudioListener oyente = FindFirstObjectByType<AudioListener>();
+        audioDisparo = oyente != null ? oyente.GetComponent<AudioSource>() : null;
+        if (audioDisparo == null) audioDisparo = GetComponent<AudioSource>();
+        if (audioDisparo == null)
+            audioDisparo = (oyente != null ? oyente.gameObject : gameObject).AddComponent<AudioSource>();
+        audioDisparo.playOnAwake = false;
+        audioDisparo.loop = false;
+        audioDisparo.mute = false;
+        audioDisparo.volume = 1f;
+        audioDisparo.pitch = 1f;
+        audioDisparo.dopplerLevel = 0f;
+        audioDisparo.spatialBlend = 0f;
+        audioDisparo.bypassEffects = true;
+        audioDisparo.bypassListenerEffects = true;
+        audioDisparo.bypassReverbZones = true;
         disparosRestantes = disparosMaximos;
     }
 
@@ -32,6 +56,18 @@ public class DisparoAbeja : MonoBehaviour
         if (disparosRestantes <= 0 || Time.time < siguienteDisparo) return;
         siguienteDisparo = Time.time + intervaloEntreDisparos;
         disparosRestantes--;
+        if (sonidoDisparo != null && audioDisparo != null)
+        {
+            if (sonidoDisparo.loadState != AudioDataLoadState.Loaded) sonidoDisparo.LoadAudioData();
+            if (sonidoDisparo.loadState == AudioDataLoadState.Loaded)
+                audioDisparo.PlayOneShot(sonidoDisparo, volumenSonidoDisparo);
+            else
+                Debug.LogWarning("El clip de sonido del disparo no se pudo cargar: " + sonidoDisparo.name, this);
+        }
+        else
+        {
+            Debug.LogWarning("Asigna un clip en Sonido Disparo del componente Movimiento Abeja 3D.", this);
+        }
 
         colisionAbeja = GetComponent<CapsuleCollider>();
         Vector3 adelante = transform.forward;
@@ -130,6 +166,8 @@ public class DisparoAbeja : MonoBehaviour
         GUI.Box(new Rect(Screen.width - 262, 12, 250, 36), "Disparos: " + disparosRestantes + " / " + disparosMaximos, estilo);
     }
 }
+
+
 
 
 

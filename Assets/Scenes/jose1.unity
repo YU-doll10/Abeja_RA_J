@@ -175,6 +175,7 @@ MonoBehaviour:
   radioEsquinasTerreno: 30
   frecuenciaAlas: 22
   anguloAleteo: 32
+  sonidoDisparo: {fileID: 8300000, guid: 022fb7dce4d63d24da9d2c460cb88515, type: 3}
 --- !u!114 &168167448
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1410,3 +1411,4 @@ SceneRoots:
   - {fileID: 1758233406}
   - {fileID: 432547230}
   - {fileID: 607171019}
+

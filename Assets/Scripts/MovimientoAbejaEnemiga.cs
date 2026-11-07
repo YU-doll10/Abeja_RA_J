@@ -15,12 +15,14 @@ public class MovimientoAbejaEnemiga : MonoBehaviour
     private CapsuleCollider colision;
     private Terrain terreno;
     private bool persecucionIniciada;
+    private static Texture2D texturaEnemigaRoja;
 
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
         animacionAbeja = GetComponent<MovimientoAbeja3D>();
         animacionAbeja.controlJugador = false;
+        AplicarColorEnemigo();
         VidasAbeja vidas = GetComponent<VidasAbeja>();
         if (vidas == null) vidas = gameObject.AddComponent<VidasAbeja>();
         vidas.Inicializar(false);
@@ -30,6 +32,33 @@ public class MovimientoAbejaEnemiga : MonoBehaviour
         rb.interpolation = RigidbodyInterpolation.Interpolate;
         rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
         rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+    }
+
+    void AplicarColorEnemigo()
+    {
+        if (texturaEnemigaRoja == null)
+            texturaEnemigaRoja = Resources.Load<Texture2D>("Textures/abeja_enemiga_roja");
+
+        if (texturaEnemigaRoja == null)
+        {
+            Debug.LogWarning("No se encontró la textura roja selectiva de la abeja enemiga.", this);
+            return;
+        }
+
+        Renderer[] renderizadores = GetComponentsInChildren<Renderer>(true);
+        foreach (Renderer renderizador in renderizadores)
+        {
+            Material[] materiales = renderizador.materials;
+            foreach (Material material in materiales)
+            {
+                if (material == null) continue;
+                if (material.HasProperty("_BaseMap")) material.SetTexture("_BaseMap", texturaEnemigaRoja);
+                if (material.HasProperty("_MainTex")) material.SetTexture("_MainTex", texturaEnemigaRoja);
+                if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", Color.white);
+                if (material.HasProperty("_Color")) material.SetColor("_Color", Color.white);
+            }
+            renderizador.materials = materiales;
+        }
     }
 
     void Start()

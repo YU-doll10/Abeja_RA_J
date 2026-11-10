@@ -11,6 +11,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/SampleScene_Antes_RA.unity
     guid: 0e54e23a0fafd354ea574b46291beb1e
+  - enabled: 1
+    path: Assets/Scenes/tercerniv.unity
+    guid: a5bc2a751f2c6c34badcda119b21394f
   m_configObjects:
     UnityEditor.XR.ARCore.ARCoreSettings: {fileID: 11400000, guid: 7ffbd848fb5dcff4294daf69d22c370b, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}

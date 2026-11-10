@@ -13,6 +13,8 @@ public static class CrearTercerNivelEditor
     const string TerrainTarget = "Assets/Scenes/tercerniv_Terrain.asset";
     const string TerrainMaterialTarget = "Assets/Scenes/tercerniv_TerrainLit.mat";
     const string PathMaterialTarget = "Assets/Scenes/tercerniv_Camino.mat";
+    const string PathMeshTarget = "Assets/Scenes/tercerniv_CaminoMesh.asset";
+    const string PathAreaMeshTarget = "Assets/Scenes/tercerniv_AreaVolable.asset";
     const string GrassLayerTarget = "Assets/Scenes/tercerniv_Grass.terrainlayer";
     const string SoilLayerTarget = "Assets/Scenes/tercerniv_Soil.terrainlayer";
     const string MazeMapTarget = "Assets/Scenes/tercerniv_MazeMap.asset";
@@ -377,6 +379,321 @@ public static class CrearTercerNivelEditor
         if (x >= 0 && y >= 0 && x < size && y < size) pixels[y * size + x] = color;
     }
 
+    [MenuItem("Abeja RA/Aplicar Grass y Camino_Laberinto (solo terreno)")]
+    public static void AplicarGrassYCaminoSolo()
+    {
+        Scene scene = SceneManager.GetSceneByPath(SceneTarget);
+        if (!scene.IsValid() || !scene.isLoaded)
+            scene = EditorSceneManager.OpenScene(SceneTarget, OpenSceneMode.Single);
+
+        Terrain terrain = scene.GetRootGameObjects()
+            .SelectMany(g => g.GetComponentsInChildren<Terrain>(true)).FirstOrDefault();
+        if (terrain == null || terrain.terrainData == null)
+        {
+            Debug.LogError("No se encontró el Terrain de tercerniv.");
+            return;
+        }
+
+        Texture2D grassTexture = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Low Poly Nature Pack/Textures/Grass.png");
+        Texture2D soilTexture = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Low Poly Nature Pack/Textures/Soil.png");
+        TerrainLayer grassLayer = LoadOrCreateLayer(GrassLayerTarget, "tercerniv Grass Texture", grassTexture, 24f);
+        if (grassLayer == null)
+        {
+            Debug.LogError("No se encontró Grass.png en Low Poly Nature Pack.");
+            return;
+        }
+
+        TerrainData data = terrain.terrainData;
+        data.terrainLayers = new[] { grassLayer };
+        int alpha = data.alphamapResolution;
+        float[,,] grassMap = new float[alpha, alpha, 1];
+        for (int z = 0; z < alpha; z++)
+        for (int x = 0; x < alpha; x++) grassMap[z, x, 0] = 1f;
+        data.SetAlphamaps(0, 0, grassMap);
+
+        TerrainCollider terrainCollider = terrain.GetComponent<TerrainCollider>();
+        if (terrainCollider == null) terrainCollider = terrain.gameObject.AddComponent<TerrainCollider>();
+        terrainCollider.terrainData = data;
+        terrain.drawHeightmap = true;
+        terrain.Flush();
+
+        foreach (GameObject root in scene.GetRootGameObjects())
+            if (root.name == "Camino_Laberinto") UnityEngine.Object.DestroyImmediate(root);
+
+        Shader pathShader = Shader.Find("Universal Render Pipeline/Lit");
+        if (pathShader == null) pathShader = Shader.Find("Standard");
+        Material pathMaterial = AssetDatabase.LoadAssetAtPath<Material>(PathMaterialTarget);
+        if (pathMaterial == null)
+        {
+            if (pathShader == null)
+            {
+                Debug.LogError("No se encontró un shader compatible para Camino_Laberinto.");
+                return;
+            }
+            pathMaterial = new Material(pathShader) { name = "tercerniv Camino Marron", color = new Color32(126, 82, 46, 255) };
+            AssetDatabase.CreateAsset(pathMaterial, PathMaterialTarget);
+        }
+        if (soilTexture != null)
+        {
+            pathMaterial.color = Color.white;
+            pathMaterial.SetTexture("_BaseMap", soilTexture);
+            pathMaterial.SetTextureScale("_BaseMap", new Vector2(3f, 8f));
+            EditorUtility.SetDirty(pathMaterial);
+        }
+
+        GameObject pathRoot = new GameObject("Camino_Laberinto");
+        SceneManager.MoveGameObjectToScene(pathRoot, scene);
+        int segmentNumber = 1;
+        Vector3 origin = terrain.transform.position;
+        foreach (Vector2[] route in GetMazeRoutes())
+        for (int i = 0; i < route.Length - 1; i++)
+        {
+            Vector3 start = origin + new Vector3(route[i].x, 0.16f, route[i].y);
+            Vector3 end = origin + new Vector3(route[i + 1].x, 0.16f, route[i + 1].y);
+            GameObject segment = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            segment.name = "Tramo_" + (segmentNumber++).ToString("00");
+            UnityEngine.Object.DestroyImmediate(segment.GetComponent<Collider>());
+            segment.transform.SetParent(pathRoot.transform, true);
+            segment.transform.position = (start + end) * 0.5f;
+            segment.transform.rotation = Quaternion.LookRotation(end - start, Vector3.up);
+            segment.transform.localScale = new Vector3(20f, 0.22f, Vector3.Distance(start, end) + 1f);
+            segment.GetComponent<Renderer>().sharedMaterial = pathMaterial;
+        }
+
+        EditorUtility.SetDirty(data);
+        EditorSceneManager.MarkSceneDirty(scene);
+        AssetDatabase.SaveAssets();
+        EditorSceneManager.SaveScene(scene, SceneTarget);
+        Debug.Log("tercerniv guardado: Grass.png en el suelo y Camino_Laberinto con textura de Soil.png. Flores y dinámica preservadas.");
+    }
+
+    [MenuItem("Abeja RA/Unificar Camino_Laberinto y limitar las abejas al laberinto")]
+    public static void UnificarCaminoYLimitarAbejas()
+    {
+        Scene scene = SceneManager.GetSceneByPath(SceneTarget);
+        if (!scene.IsValid() || !scene.isLoaded)
+            scene = EditorSceneManager.OpenScene(SceneTarget, OpenSceneMode.Single);
+
+        Terrain terrain = scene.GetRootGameObjects()
+            .SelectMany(g => g.GetComponentsInChildren<Terrain>(true)).FirstOrDefault();
+        if (terrain == null || terrain.terrainData == null)
+        {
+            Debug.LogError("No se encontró el Terrain de tercerniv.");
+            return;
+        }
+        Material pathMaterial = AssetDatabase.LoadAssetAtPath<Material>(PathMaterialTarget);
+        if (pathMaterial == null)
+        {
+            Debug.LogError("No se encontró el material del camino.");
+            return;
+        }
+
+        Vector2[][] routes = GetMazeRoutes();
+        float radioAbeja = 0f;
+        MovimientoAbeja3D[] bees = scene.GetRootGameObjects()
+            .SelectMany(g => g.GetComponentsInChildren<MovimientoAbeja3D>(true)).ToArray();
+        foreach (MovimientoAbeja3D bee in bees)
+        {
+            Renderer[] renderers = bee.GetComponentsInChildren<Renderer>(true);
+            if (renderers.Length == 0) continue;
+            Bounds bounds = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+            radioAbeja = Mathf.Max(radioAbeja, Mathf.Max(bounds.extents.x, bounds.extents.z) * 0.38f);
+        }
+
+        const float anchoVisual = 20f;
+        float anchoTransitable = Mathf.Clamp(anchoVisual - 2f * (radioAbeja + 0.5f), 8f, 18f);
+        Mesh visualMesh = CrearMallaCamino(routes, anchoVisual);
+        Mesh areaMesh = CrearMallaCamino(routes, anchoTransitable);
+        if (visualMesh == null || areaMesh == null)
+        {
+            if (visualMesh != null) UnityEngine.Object.DestroyImmediate(visualMesh);
+            if (areaMesh != null) UnityEngine.Object.DestroyImmediate(areaMesh);
+            Debug.LogError("No se pudo construir la malla continua del laberinto.");
+            return;
+        }
+
+        visualMesh = GuardarMalla(PathMeshTarget, visualMesh, "tercerniv Camino Continuo");
+        areaMesh = GuardarMalla(PathAreaMeshTarget, areaMesh, "tercerniv Zona Volable");
+
+        GameObject oldPath = scene.GetRootGameObjects().FirstOrDefault(g => g.name == "Camino_Laberinto");
+        if (oldPath != null) UnityEngine.Object.DestroyImmediate(oldPath);
+        GameObject pathRoot = new GameObject("Camino_Laberinto");
+        SceneManager.MoveGameObjectToScene(pathRoot, scene);
+        pathRoot.transform.position = terrain.transform.position;
+
+        MeshFilter filter = pathRoot.AddComponent<MeshFilter>();
+        filter.sharedMesh = visualMesh;
+        MeshRenderer renderer = pathRoot.AddComponent<MeshRenderer>();
+        renderer.sharedMaterial = pathMaterial;
+        MeshCollider walkableArea = pathRoot.AddComponent<MeshCollider>();
+        walkableArea.sharedMesh = areaMesh;
+        walkableArea.convex = false;
+
+        EditorSceneManager.MarkSceneDirty(scene);
+        AssetDatabase.SaveAssets();
+        EditorSceneManager.SaveScene(scene, SceneTarget);
+        Debug.Log("Camino_Laberinto convertido en una malla continua con área transitable. Las abejas quedan limitadas al corredor y las flores se conservaron.");
+    }
+
+    static Mesh GuardarMalla(string assetPath, Mesh generated, string meshName)
+    {
+        Mesh asset = AssetDatabase.LoadAssetAtPath<Mesh>(assetPath);
+        if (asset == null)
+        {
+            generated.name = meshName;
+            AssetDatabase.CreateAsset(generated, assetPath);
+            return generated;
+        }
+
+        generated.name = meshName;
+        EditorUtility.CopySerialized(generated, asset);
+        asset.name = meshName;
+        EditorUtility.SetDirty(asset);
+        UnityEngine.Object.DestroyImmediate(generated);
+        return asset;
+    }
+
+    static Mesh CrearMallaCamino(Vector2[][] routes, float width)
+    {
+        List<Vector3> vertices = new List<Vector3>();
+        List<Vector2> uvs = new List<Vector2>();
+        List<int> triangles = new List<int>();
+        float halfWidth = width * 0.5f;
+
+        for (int routeIndex = 0; routeIndex < routes.Length; routeIndex++)
+        {
+            Vector2[] route = routes[routeIndex];
+            if (route == null || route.Length < 2) continue;
+            int startIndex = vertices.Count;
+            float distance = 0f;
+            for (int i = 0; i < route.Length; i++)
+            {
+                Vector2 previous = i > 0 ? (route[i] - route[i - 1]).normalized : (route[1] - route[0]).normalized;
+                Vector2 next = i < route.Length - 1 ? (route[i + 1] - route[i]).normalized : previous;
+                Vector2 sidePrevious = new Vector2(-previous.y, previous.x);
+                Vector2 sideNext = new Vector2(-next.y, next.x);
+                Vector2 miter = (sidePrevious + sideNext).normalized;
+                if (miter.sqrMagnitude < 0.001f) miter = sideNext;
+                float denominator = Vector2.Dot(miter, sideNext);
+                if (denominator < 0.25f)
+                {
+                    miter = sideNext;
+                    denominator = 1f;
+                }
+                float miterLength = Mathf.Min(halfWidth / denominator, halfWidth * 2f);
+                Vector2 offset = miter * miterLength;
+                float y = 0.16f + routeIndex * 0.001f;
+                vertices.Add(new Vector3(route[i].x + offset.x, y, route[i].y + offset.y));
+                vertices.Add(new Vector3(route[i].x - offset.x, y, route[i].y - offset.y));
+                uvs.Add(new Vector2(0f, distance / 80f));
+                uvs.Add(new Vector2(1f, distance / 80f));
+                if (i < route.Length - 1) distance += Vector2.Distance(route[i], route[i + 1]);
+            }
+
+            for (int i = 0; i < route.Length - 1; i++)
+            {
+                int a = startIndex + i * 2;
+                int b = a + 1;
+                int c = a + 2;
+                int d = a + 3;
+                triangles.Add(a); triangles.Add(c); triangles.Add(b);
+                triangles.Add(c); triangles.Add(d); triangles.Add(b);
+            }
+        }
+
+        if (triangles.Count == 0) return null;
+        Mesh mesh = new Mesh { name = "tercerniv Camino Continuo" };
+        if (vertices.Count > 65535) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+        mesh.SetVertices(vertices);
+        mesh.SetUVs(0, uvs);
+        mesh.SetTriangles(triangles, 0);
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        return mesh;
+    }
+
+    [MenuItem("Abeja RA/Extender Camino_Laberinto y poner flores sobre la ruta")]
+    public static void ExtenderCaminoYColocarFlores()
+    {
+        Scene scene = SceneManager.GetSceneByPath(SceneTarget);
+        if (!scene.IsValid() || !scene.isLoaded)
+            scene = EditorSceneManager.OpenScene(SceneTarget, OpenSceneMode.Single);
+
+        Terrain terrain = scene.GetRootGameObjects()
+            .SelectMany(g => g.GetComponentsInChildren<Terrain>(true)).FirstOrDefault();
+        if (terrain == null || terrain.terrainData == null)
+        {
+            Debug.LogError("No se encontró el Terrain de tercerniv.");
+            return;
+        }
+
+        FlorRecolectable[] flowers = scene.GetRootGameObjects()
+            .SelectMany(g => g.GetComponentsInChildren<FlorRecolectable>(true)).ToArray();
+        Array.Sort(flowers, (a, b) => string.CompareOrdinal(a.name, b.name));
+        if (flowers.Length != 5)
+        {
+            Debug.LogError("Se esperaban cinco flores para alinearlas con el camino; se encontraron " + flowers.Length + ".");
+            return;
+        }
+
+        Material pathMaterial = AssetDatabase.LoadAssetAtPath<Material>(PathMaterialTarget);
+        if (pathMaterial == null)
+        {
+            Debug.LogError("No se encontró el material del Camino_Laberinto.");
+            return;
+        }
+
+        GameObject existingPath = scene.GetRootGameObjects().FirstOrDefault(g => g.name == "Camino_Laberinto");
+        if (existingPath != null) UnityEngine.Object.DestroyImmediate(existingPath);
+        GameObject pathRoot = new GameObject("Camino_Laberinto");
+        SceneManager.MoveGameObjectToScene(pathRoot, scene);
+        Vector3 origin = terrain.transform.position;
+        int segmentNumber = 1;
+        Vector2[][] routes = GetMazeRoutes();
+        foreach (Vector2[] route in routes)
+        for (int i = 0; i < route.Length - 1; i++)
+        {
+            Vector3 start = origin + new Vector3(route[i].x, 0.16f, route[i].y);
+            Vector3 end = origin + new Vector3(route[i + 1].x, 0.16f, route[i + 1].y);
+            GameObject segment = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            segment.name = "Tramo_" + (segmentNumber++).ToString("00");
+            UnityEngine.Object.DestroyImmediate(segment.GetComponent<Collider>());
+            segment.transform.SetParent(pathRoot.transform, true);
+            segment.transform.position = (start + end) * 0.5f;
+            segment.transform.rotation = Quaternion.LookRotation(end - start, Vector3.up);
+            segment.transform.localScale = new Vector3(20f, 0.22f, Vector3.Distance(start, end) + 1f);
+            segment.GetComponent<Renderer>().sharedMaterial = pathMaterial;
+        }
+
+        float[] positions = { 0.12f, 0.31f, 0.50f, 0.69f, 0.88f };
+        for (int i = 0; i < flowers.Length; i++)
+        {
+            Vector2 point = PuntoEnRuta(routes[0], positions[i]);
+            Vector3 world = origin + new Vector3(point.x, 0f, point.y);
+            world.y = terrain.SampleHeight(world) + origin.y + 0.12f;
+            flowers[i].transform.position = world;
+        }
+
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene, SceneTarget);
+        Debug.Log("Camino_Laberinto extendido y cinco flores colocadas sobre la ruta principal; demás dinámica preservada.");
+    }
+
+    static Vector2 PuntoEnRuta(Vector2[] route, float fraction)
+    {
+        float total = 0f;
+        for (int i = 0; i < route.Length - 1; i++) total += Vector2.Distance(route[i], route[i + 1]);
+        float target = Mathf.Clamp01(fraction) * total;
+        for (int i = 0; i < route.Length - 1; i++)
+        {
+            float segment = Vector2.Distance(route[i], route[i + 1]);
+            if (target <= segment) return Vector2.Lerp(route[i], route[i + 1], segment <= 0f ? 0f : target / segment);
+            target -= segment;
+        }
+        return route[route.Length - 1];
+    }
+
     [MenuItem("Abeja RA/Reparar terreno visible de tercerniv")]
     public static void RepararTerreno()
     {
@@ -531,7 +848,8 @@ public static class CrearTercerNivelEditor
                 new Vector2(340, 380), new Vector2(300, 380), new Vector2(300, 350), new Vector2(250, 350),
                 new Vector2(250, 380), new Vector2(200, 380), new Vector2(200, 350), new Vector2(145, 350),
                 new Vector2(145, 380), new Vector2(90, 380), new Vector2(90, 350), new Vector2(45, 350),
-                new Vector2(45, 320), new Vector2(22, 320)
+                new Vector2(45, 320), new Vector2(22, 320), new Vector2(22, 360),
+                new Vector2(12, 360), new Vector2(12, 320)
             },
             new[] { new Vector2(22, 60), new Vector2(42, 60), new Vector2(42, 40) },
             new[] { new Vector2(50, 115), new Vector2(50, 145), new Vector2(65, 145) },

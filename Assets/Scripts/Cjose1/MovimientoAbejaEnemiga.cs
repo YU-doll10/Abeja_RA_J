@@ -125,6 +125,7 @@ public class MovimientoAbejaEnemiga : MonoBehaviour
             local.z = Mathf.Clamp(local.z, 0f, tamano.z);
             siguiente = terreno.transform.TransformPoint(local);
         }
+        siguiente = animacionAbeja.MantenerEnCamino(siguiente);
         rb.MovePosition(siguiente);
     }
 }

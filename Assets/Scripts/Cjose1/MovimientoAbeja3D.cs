@@ -14,6 +14,7 @@ public class MovimientoAbeja3D : MonoBehaviour
 
     private Rigidbody rb;
     private Terrain terreno;
+    private MeshCollider caminoTransitable;
     private CapsuleCollider colisionAbeja;
     private Transform alaIzquierda;
     private Transform alaDerecha;
@@ -25,6 +26,7 @@ public class MovimientoAbeja3D : MonoBehaviour
     {
         rb = GetComponent<Rigidbody>();
         terreno = Terrain.activeTerrain != null ? Terrain.activeTerrain : FindFirstObjectByType<Terrain>();
+        BuscarCaminoTransitable();
         VidasAbeja vidas = GetComponent<VidasAbeja>();
         if (vidas == null) vidas = gameObject.AddComponent<VidasAbeja>();
         vidas.Inicializar(controlJugador);
@@ -118,8 +120,29 @@ public class MovimientoAbeja3D : MonoBehaviour
         else if (bajar) movimiento.y = -velocidad * Time.fixedDeltaTime;
         Vector3 siguientePosicion = rb.position + movimiento;
         if (terreno != null && terreno.terrainData != null) siguientePosicion = MantenerSobreTerreno(siguientePosicion);
+        siguientePosicion = MantenerEnCamino(siguientePosicion);
         rb.MovePosition(siguientePosicion);
     }
+
+    void BuscarCaminoTransitable()
+    {
+        GameObject camino = GameObject.Find("Camino_Laberinto");
+        caminoTransitable = camino != null ? camino.GetComponent<MeshCollider>() : null;
+    }
+
+    public Vector3 MantenerEnCamino(Vector3 posicion)
+    {
+        if (caminoTransitable == null) BuscarCaminoTransitable();
+        if (caminoTransitable == null || !caminoTransitable.enabled || caminoTransitable.sharedMesh == null) return posicion;
+
+        Vector3 puntoConsulta = new Vector3(posicion.x, caminoTransitable.bounds.center.y, posicion.z);
+        Vector3 puntoMasCercano = caminoTransitable.ClosestPoint(puntoConsulta);
+        if (float.IsNaN(puntoMasCercano.x) || float.IsNaN(puntoMasCercano.z)) return posicion;
+        posicion.x = puntoMasCercano.x;
+        posicion.z = puntoMasCercano.z;
+        return posicion;
+    }
+
     private Vector3 MantenerSobreTerreno(Vector3 posicion)
     {
         Vector3 centroOffset = colisionAbeja != null ? transform.TransformVector(colisionAbeja.center) : Vector3.zero;

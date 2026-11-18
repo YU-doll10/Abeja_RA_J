@@ -14,6 +14,13 @@ public static class PlacePlant07CInJose1
     static PlacePlant07CInJose1()
     {
         EditorApplication.delayCall += PlaceIfJose1IsOpen;
+        EditorSceneManager.sceneOpened += OnSceneOpened;
+    }
+
+    private static void OnSceneOpened(Scene scene, OpenSceneMode mode)
+    {
+        if (scene.path.Replace('\\', '/') == ScenePath)
+            EditorApplication.delayCall += () => AlinearFloresExistentes(scene);
     }
 
     [MenuItem("Abeja RA/Colocar cinco flores Plant07C")]
@@ -32,6 +39,7 @@ public static class PlacePlant07CInJose1
 
         if (GameObject.Find("Flores_Plant07C") != null)
         {
+            AlinearFloresExistentes(scene);
             Debug.Log("Ya existe el grupo Flores_Plant07C; no se duplicaron las flores.");
             return;
         }
@@ -76,7 +84,7 @@ public static class PlacePlant07CInJose1
             flor.name = "Plant07C_0" + (i + 1);
             flor.transform.position = impacto.point + Vector3.up * 0.04f;
             flor.transform.rotation = Quaternion.Euler(0f, giros[i], 0f);
-            flor.transform.localScale = Vector3.one * 2f;
+            flor.transform.localScale = Vector3.one * 2.3f;
             Undo.SetTransformParent(flor.transform, grupo.transform, "Agrupar flores Plant07C");
             foreach (Renderer renderizador in flor.GetComponentsInChildren<Renderer>(true))
             {
@@ -84,10 +92,93 @@ public static class PlacePlant07CInJose1
                 for (int j = 0; j < materiales.Length; j++) materiales[j] = material;
                 renderizador.sharedMaterials = materiales;
             }
+            AlinearBaseAlTerreno(flor.transform, terreno.GetComponent<Terrain>());
         }
 
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
         Debug.Log("Se colocaron cinco flores Plant07C sobre RoundedTerrainVisual con la textura Color Atlas del paquete Low Poly Nature Pack.");
+    }
+
+    private static void AlinearFloresExistentes(Scene scene)
+    {
+        if (!scene.IsValid() || !scene.isLoaded || EditorApplication.isPlayingOrWillChangePlaymode) return;
+        Terrain terreno = null;
+        foreach (GameObject root in scene.GetRootGameObjects())
+        {
+            terreno = root.GetComponentInChildren<Terrain>(true);
+            if (terreno != null) break;
+        }
+        if (terreno == null || terreno.terrainData == null) return;
+
+        int ajustadas = 0;
+        foreach (GameObject root in scene.GetRootGameObjects())
+        {
+            foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
+            {
+                if (!EsInstanciaFlor(t.name)) continue;
+                if (AlinearBaseAlTerreno(t, terreno)) ajustadas++;
+            }
+        }
+
+        if (ajustadas > 0)
+        {
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            Debug.Log("Se asentaron " + ajustadas + " flores Plant07C en el suelo plano de jose1.");
+        }
+    }
+
+    private static bool EsInstanciaFlor(string nombre)
+    {
+        return nombre.StartsWith("Plant07C_") && nombre.Length == 11 &&
+               char.IsDigit(nombre[9]) && char.IsDigit(nombre[10]);
+    }
+
+    private static bool AlinearBaseAlTerreno(Transform flor, Terrain terreno)
+    {
+        if (flor == null || terreno == null || terreno.terrainData == null) return false;
+        bool cambioLOD = false;
+        foreach (Transform hijo in flor.GetComponentsInChildren<Transform>(true))
+        {
+            if (hijo == flor || !hijo.name.StartsWith("Plant07C_LOD")) continue;
+            Vector3 local = hijo.localPosition;
+            if (Mathf.Abs(local.y) < 0.005f) continue;
+            local.y = 0f;
+            hijo.localPosition = local;
+            EditorUtility.SetDirty(hijo);
+            cambioLOD = true;
+        }
+
+        Renderer[] renderizadores = flor.GetComponentsInChildren<Renderer>(true);
+        bool encontro = false;
+        Bounds bounds = default;
+        foreach (Renderer renderizador in renderizadores)
+        {
+            if (!renderizador.enabled || !renderizador.gameObject.activeInHierarchy) continue;
+            if (!encontro) { bounds = renderizador.bounds; encontro = true; }
+            else bounds.Encapsulate(renderizador.bounds);
+        }
+        if (!encontro)
+        {
+            foreach (Renderer renderizador in renderizadores)
+            {
+                if (!renderizador.enabled) continue;
+                if (!encontro) { bounds = renderizador.bounds; encontro = true; }
+                else bounds.Encapsulate(renderizador.bounds);
+            }
+        }
+        if (!encontro) return false;
+
+        float suelo = terreno.SampleHeight(flor.position) + terreno.transform.position.y;
+        float diferencia = suelo - bounds.min.y;
+        if (Mathf.Abs(diferencia) >= 0.005f)
+        {
+            Undo.RecordObject(flor, "Alinear flor con el terreno");
+            flor.position += Vector3.up * diferencia;
+            EditorUtility.SetDirty(flor);
+            Debug.Log($"Flor {flor.name}: base visual alineada con el suelo ({diferencia:0.00} m).", flor);
+        }
+        return cambioLOD || Mathf.Abs(diferencia) >= 0.005f;
     }
 }

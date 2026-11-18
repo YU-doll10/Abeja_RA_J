@@ -169,7 +169,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MovimientoAbeja3D
   controlJugador: 1
-  velocidad: 10
+  velocidad: 15
   velocidadGiro: 100
   alturaSobreTerreno: 1.5
   radioEsquinasTerreno: 30

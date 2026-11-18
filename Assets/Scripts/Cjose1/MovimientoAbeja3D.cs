@@ -4,7 +4,7 @@ using UnityEngine;
 public class MovimientoAbeja3D : MonoBehaviour
 {
     public bool controlJugador = true;
-    public float velocidad = 10f;
+    public float velocidad = 15f;
     public float velocidadGiro = 100f;
     public float alturaSobreTerreno = 1.5f;
     public float radioEsquinasTerreno = 30f;
@@ -14,7 +14,6 @@ public class MovimientoAbeja3D : MonoBehaviour
 
     private Rigidbody rb;
     private Terrain terreno;
-    private MeshCollider caminoTransitable;
     private CapsuleCollider colisionAbeja;
     private Transform alaIzquierda;
     private Transform alaDerecha;
@@ -26,12 +25,12 @@ public class MovimientoAbeja3D : MonoBehaviour
     {
         rb = GetComponent<Rigidbody>();
         terreno = Terrain.activeTerrain != null ? Terrain.activeTerrain : FindFirstObjectByType<Terrain>();
-        BuscarCaminoTransitable();
         VidasAbeja vidas = GetComponent<VidasAbeja>();
         if (vidas == null) vidas = gameObject.AddComponent<VidasAbeja>();
         vidas.Inicializar(controlJugador);
         if (controlJugador && GetComponent<DisparoAbeja>() == null) gameObject.AddComponent<DisparoAbeja>();
         PrepararColision();
+        PrepararColisionesCabanas();
         BuscarAlas();
         if (alaIzquierda != null) rotacionBaseIzquierda = alaIzquierda.localRotation;
         if (alaDerecha != null) rotacionBaseDerecha = alaDerecha.localRotation;
@@ -120,27 +119,34 @@ public class MovimientoAbeja3D : MonoBehaviour
         else if (bajar) movimiento.y = -velocidad * Time.fixedDeltaTime;
         Vector3 siguientePosicion = rb.position + movimiento;
         if (terreno != null && terreno.terrainData != null) siguientePosicion = MantenerSobreTerreno(siguientePosicion);
-        siguientePosicion = MantenerEnCamino(siguientePosicion);
         rb.MovePosition(siguientePosicion);
     }
 
-    void BuscarCaminoTransitable()
+    void PrepararColisionesCabanas()
     {
-        GameObject camino = GameObject.Find("Camino_Laberinto");
-        caminoTransitable = camino != null ? camino.GetComponent<MeshCollider>() : null;
-    }
+        Transform[] objetos = FindObjectsByType<Transform>(FindObjectsSortMode.None);
+        foreach (Transform objeto in objetos)
+        {
+            if (!objeto.name.StartsWith("Cabin_Escenario") && !objeto.name.StartsWith("Cabin_Assembly_Tercerniv")) continue;
+            if (objeto.GetComponentInChildren<Collider>(true) != null) continue;
+            Renderer[] renderers = objeto.GetComponentsInChildren<Renderer>(true);
+            if (renderers.Length == 0) continue;
 
-    public Vector3 MantenerEnCamino(Vector3 posicion)
-    {
-        if (caminoTransitable == null) BuscarCaminoTransitable();
-        if (caminoTransitable == null || !caminoTransitable.enabled || caminoTransitable.sharedMesh == null) return posicion;
-
-        Vector3 puntoConsulta = new Vector3(posicion.x, caminoTransitable.bounds.center.y, posicion.z);
-        Vector3 puntoMasCercano = caminoTransitable.ClosestPoint(puntoConsulta);
-        if (float.IsNaN(puntoMasCercano.x) || float.IsNaN(puntoMasCercano.z)) return posicion;
-        posicion.x = puntoMasCercano.x;
-        posicion.z = puntoMasCercano.z;
-        return posicion;
+            Bounds mundo = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++) mundo.Encapsulate(renderers[i].bounds);
+            Vector3 min = mundo.min, max = mundo.max;
+            Vector3[] esquinas = {
+                new Vector3(min.x, min.y, min.z), new Vector3(min.x, min.y, max.z),
+                new Vector3(min.x, max.y, min.z), new Vector3(min.x, max.y, max.z),
+                new Vector3(max.x, min.y, min.z), new Vector3(max.x, min.y, max.z),
+                new Vector3(max.x, max.y, min.z), new Vector3(max.x, max.y, max.z)
+            };
+            Bounds local = new Bounds(objeto.InverseTransformPoint(esquinas[0]), Vector3.zero);
+            for (int i = 1; i < esquinas.Length; i++) local.Encapsulate(objeto.InverseTransformPoint(esquinas[i]));
+            BoxCollider bloque = objeto.gameObject.AddComponent<BoxCollider>();
+            bloque.center = local.center;
+            bloque.size = local.size;
+        }
     }
 
     private Vector3 MantenerSobreTerreno(Vector3 posicion)

@@ -5665,7 +5665,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
   m_Color: {r: 0.035, g: 0.1, b: 0.075, a: 0.94}
-  m_RaycastTarget: 1
+  m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
@@ -7634,7 +7634,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -129.99991, y: 0}
+  m_AnchoredPosition: {x: -129.99994, y: 0}
   m_SizeDelta: {x: -300, y: -16}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1220702478
@@ -12578,6 +12578,7 @@ GameObject:
   - component: {fileID: 2025803963}
   - component: {fileID: 2025803962}
   - component: {fileID: 2025803964}
+  - component: {fileID: 2025803965}
   m_Layer: 0
   m_Name: AbejaRA_Game
   m_TagString: Untagged
@@ -12657,6 +12658,22 @@ MonoBehaviour:
   cameraManager: {fileID: 479271445}
   background: {fileID: 479271444}
   poseDriver: {fileID: 479271443}
+--- !u!114 &2025803965
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2025803961}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 09bcab9e88018344f88081b1ed629b5e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AbejaRA.BeeGameMenu
+  game: {fileID: 2025803962}
+  placement: {fileID: 2025803964}
+  gameplayHud: {fileID: 1645869245}
+  gardenPreview: {fileID: 2800000, guid: b711d9e7a2adadb458f80a2246e7894b, type: 3}
 --- !u!1 &2026458708
 GameObject:
   m_ObjectHideFlags: 0
@@ -13410,9 +13427,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 2025803962}
-        m_TargetAssemblyTypeName: AbejaRA.BeeGardenGame, Assembly-CSharp
-        m_MethodName: Reposition
+      - m_Target: {fileID: 2025803964}
+        m_TargetAssemblyTypeName: AbejaRA.BeeARPlacement, Assembly-CSharp
+        m_MethodName: PlaceFromCenter
         m_Mode: 0
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -13825,7 +13842,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
   m_Color: {r: 0.035, g: 0.1, b: 0.075, a: 0.94}
-  m_RaycastTarget: 1
+  m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:

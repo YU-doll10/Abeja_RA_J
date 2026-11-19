@@ -1869,6 +1869,9 @@ MonoBehaviour:
   velocidadGiro: 150
   distanciaMinima: 0.5
   alturaSobreTerreno: 1.5
+  vidasEnemigo: 10
+  cantidadAlMorir: 0
+  separacionAlNacer: 3
   tamanoCeldaRuta: 1.5
   intervaloRecalculoRuta: 0.45
 --- !u!114 &1000582480

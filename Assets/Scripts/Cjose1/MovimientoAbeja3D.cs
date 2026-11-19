@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 [RequireComponent(typeof(Rigidbody))]
 public class MovimientoAbeja3D : MonoBehaviour
@@ -27,7 +28,10 @@ public class MovimientoAbeja3D : MonoBehaviour
         terreno = Terrain.activeTerrain != null ? Terrain.activeTerrain : FindFirstObjectByType<Terrain>();
         VidasAbeja vidas = GetComponent<VidasAbeja>();
         if (vidas == null) vidas = gameObject.AddComponent<VidasAbeja>();
-        vidas.Inicializar(controlJugador);
+        // El controlador enemigo asigna su cantidad de vidas propia. No la
+        // restablezcas aquí a 5: el orden de Awake entre componentes no está garantizado.
+        if (controlJugador) vidas.Inicializar(true);
+        else if (GetComponent<MovimientoAbejaEnemiga>() == null) vidas.Inicializar(false);
         if (controlJugador && GetComponent<DisparoAbeja>() == null) gameObject.AddComponent<DisparoAbeja>();
         PrepararColision();
         PrepararColisionesCabanas();
@@ -107,10 +111,21 @@ public class MovimientoAbeja3D : MonoBehaviour
     void FixedUpdate()
     {
         if (!controlJugador || rb == null) return;
-        float giro = Input.GetAxis("Horizontal");
-        float avance = Input.GetAxis("Vertical");
-        bool subir = Input.GetKey(KeyCode.Space);
-        bool bajar = Input.GetKey(KeyCode.LeftShift);
+
+        // El proyecto está configurado para el Input System nuevo; Input.GetAxis
+        // pertenece al Input Manager anterior y puede lanzar una excepción aquí.
+        Keyboard teclado = Keyboard.current;
+        float giro = 0f;
+        float avance = 0f;
+        if (teclado != null)
+        {
+            if (teclado.dKey.isPressed || teclado.rightArrowKey.isPressed) giro += 1f;
+            if (teclado.aKey.isPressed || teclado.leftArrowKey.isPressed) giro -= 1f;
+            if (teclado.wKey.isPressed || teclado.upArrowKey.isPressed) avance += 1f;
+            if (teclado.sKey.isPressed || teclado.downArrowKey.isPressed) avance -= 1f;
+        }
+        bool subir = teclado != null && teclado.spaceKey.isPressed;
+        bool bajar = teclado != null && (teclado.leftShiftKey.isPressed || teclado.rightShiftKey.isPressed);
         if (Mathf.Abs(avance) > 0.1f || subir || bajar) SeMovio = true;
         Quaternion rotacionSiguiente = rb.rotation * Quaternion.Euler(0f, giro * velocidadGiro * Time.fixedDeltaTime, 0f);
         rb.MoveRotation(rotacionSiguiente);

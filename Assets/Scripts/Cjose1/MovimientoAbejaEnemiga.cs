@@ -9,12 +9,16 @@ public class MovimientoAbejaEnemiga : MonoBehaviour
     public float velocidadGiro = 150f;
     public float distanciaMinima = 0.5f;
     public float alturaSobreTerreno = 1.5f;
+    [Min(1)] public int vidasEnemigo = 5;
+    [Min(0)] public int cantidadAlMorir = 0;
+    [Min(0.5f)] public float separacionAlNacer = 3f;
 
     private Rigidbody rb;
     private MovimientoAbeja3D controlAbeja;
     private CapsuleCollider colision;
     private Terrain terreno;
     private bool persecucionIniciada;
+    private bool yaGeneroReemplazos;
     private static Texture2D texturaEnemigaRoja;
 
     void Awake()
@@ -25,8 +29,9 @@ public class MovimientoAbejaEnemiga : MonoBehaviour
         AplicarColorEnemigo();
         VidasAbeja vidas = GetComponent<VidasAbeja>();
         if (vidas == null) vidas = gameObject.AddComponent<VidasAbeja>();
-        vidas.Inicializar(false);
+        vidas.Inicializar(false, vidasEnemigo);
         colision = GetComponent<CapsuleCollider>();
+        if (colision == null) colision = CrearColisionadorAproximado();
         terreno = Terrain.activeTerrain != null ? Terrain.activeTerrain : FindFirstObjectByType<Terrain>();
         rb.useGravity = false;
         rb.interpolation = RigidbodyInterpolation.Interpolate;
@@ -110,6 +115,73 @@ public class MovimientoAbejaEnemiga : MonoBehaviour
             siguiente = terreno.transform.TransformPoint(local);
         }
         rb.MovePosition(siguiente);
+    }
+
+    public void GenerarReemplazosAlMorir()
+    {
+        if (yaGeneroReemplazos || cantidadAlMorir <= 0) return;
+        yaGeneroReemplazos = true;
+
+        Vector3 haciaJugador = objetivo != null ? objetivo.position - transform.position : transform.forward;
+        haciaJugador.y = 0f;
+        if (haciaJugador.sqrMagnitude < 0.001f) haciaJugador = transform.forward;
+        haciaJugador.Normalize();
+        Vector3 lateral = Vector3.Cross(Vector3.up, haciaJugador).normalized;
+        // Usa una separación limitada: algunos modelos importados tienen escalas
+        // locales enormes aunque su tamaño visible sea normal.
+        float radio = colision != null ? Mathf.Max(colision.bounds.extents.x, colision.bounds.extents.z) : 0f;
+        float separacion = Mathf.Max(separacionAlNacer, Mathf.Clamp(radio * 1.5f, 0f, 6f));
+
+        for (int i = 0; i < cantidadAlMorir; i++)
+        {
+            float lado = i % 2 == 0 ? -1f : 1f;
+            Vector3 posicion = transform.position + lateral * lado * separacion + haciaJugador * (separacion * 0.35f);
+            AjustarNacimientoAlTerreno(ref posicion);
+
+            GameObject nueva = Instantiate(gameObject, posicion, transform.rotation);
+            nueva.name = "Abeja_Enemiga";
+
+            MovimientoAbejaEnemiga nuevaIA = nueva.GetComponent<MovimientoAbejaEnemiga>();
+            if (nuevaIA != null)
+            {
+                nuevaIA.objetivo = objetivo;
+                nuevaIA.yaGeneroReemplazos = false;
+            }
+            VidasAbeja nuevasVidas = nueva.GetComponent<VidasAbeja>();
+            if (nuevasVidas != null) nuevasVidas.Inicializar(false, nuevaIA != null ? nuevaIA.vidasEnemigo : vidasEnemigo);
+        }
+    }
+
+    CapsuleCollider CrearColisionadorAproximado()
+    {
+        Renderer renderizador = GetComponentInChildren<Renderer>();
+        CapsuleCollider nuevo = gameObject.AddComponent<CapsuleCollider>();
+        nuevo.direction = 1;
+
+        if (renderizador == null) return nuevo;
+
+        Bounds limites = renderizador.bounds;
+        Vector3 escala = transform.lossyScale;
+        nuevo.center = transform.InverseTransformPoint(limites.center);
+        nuevo.height = Mathf.Max(0.5f, limites.size.y / Mathf.Max(Mathf.Abs(escala.y), 0.001f));
+        nuevo.radius = Mathf.Max(0.25f,
+            Mathf.Max(limites.size.x / Mathf.Max(Mathf.Abs(escala.x), 0.001f),
+                      limites.size.z / Mathf.Max(Mathf.Abs(escala.z), 0.001f)) * 0.5f);
+        return nuevo;
+    }
+
+    void AjustarNacimientoAlTerreno(ref Vector3 posicion)
+    {
+        if (terreno == null || terreno.terrainData == null) return;
+        float medioAlto = colision != null ? colision.bounds.extents.y : 1f;
+        float suelo = terreno.SampleHeight(posicion) + terreno.transform.position.y;
+        posicion.y = Mathf.Max(posicion.y, suelo + alturaSobreTerreno + medioAlto);
+
+        Vector3 local = terreno.transform.InverseTransformPoint(posicion);
+        Vector3 tamano = terreno.terrainData.size;
+        local.x = Mathf.Clamp(local.x, 0f, tamano.x);
+        local.z = Mathf.Clamp(local.z, 0f, tamano.z);
+        posicion = terreno.transform.TransformPoint(local);
     }
 
     Vector3 BuscarDireccionLibre(Vector3 direccionObjetivo)

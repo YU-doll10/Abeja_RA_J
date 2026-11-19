@@ -689,6 +689,8 @@ MonoBehaviour:
   velocidadGiro: 150
   distanciaMinima: 0.5
   alturaSobreTerreno: 1.5
+  cantidadAlMorir: 2
+  separacionAlNacer: 3
 --- !u!114 &607171015
 MonoBehaviour:
   m_ObjectHideFlags: 0

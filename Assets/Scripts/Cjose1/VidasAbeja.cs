@@ -9,10 +9,10 @@ public class VidasAbeja : MonoBehaviour
 
     private float siguienteDanioContacto;
 
-    public void Inicializar(bool jugador)
+    public void Inicializar(bool jugador, int vidasEnemigo = 5)
     {
         esJugador = jugador;
-        vidasMaximas = jugador ? 10 : 5;
+        vidasMaximas = jugador ? 10 : Mathf.Max(1, vidasEnemigo);
         vidasActuales = vidasMaximas;
     }
 
@@ -35,6 +35,7 @@ public class VidasAbeja : MonoBehaviour
             MovimientoAbejaEnemiga enemigo = GetComponent<MovimientoAbejaEnemiga>();
             if (enemigo != null)
             {
+                enemigo.GenerarReemplazosAlMorir();
                 Destroy(gameObject);
                 return;
             }

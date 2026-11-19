@@ -1,3 +1,5 @@
+namespace AbejaRA.ControlesClasicos
+{
 using UnityEngine;
 
 public class MovimientoAbeja3D : MonoBehaviour
@@ -33,4 +35,6 @@ public class MovimientoAbeja3D : MonoBehaviour
 
         rb.MovePosition(rb.position + movimiento);
     }
+}
+
 }

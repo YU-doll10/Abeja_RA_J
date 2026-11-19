@@ -1,3 +1,5 @@
+namespace AbejaRA.ControlesClasicos
+{
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -45,4 +47,5 @@ public class PlayerMovement : MonoBehaviour
             );
         }
     }
+}
 }

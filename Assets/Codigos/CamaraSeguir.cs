@@ -1,3 +1,5 @@
+namespace AbejaRA.ControlesClasicos
+{
 using UnityEngine;
 
 public class CamaraSeguir : MonoBehaviour
@@ -21,4 +23,5 @@ public class CamaraSeguir : MonoBehaviour
             transform.LookAt(objetivo);
         }
     }
+}
 }

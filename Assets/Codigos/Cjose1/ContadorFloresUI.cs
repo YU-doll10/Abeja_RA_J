@@ -6,6 +6,8 @@ public class ContadorFloresUI : MonoBehaviour
     private static void CrearContador()
     {
         if (FindFirstObjectByType<ContadorFloresUI>() != null) return;
+        // YULI/prinev dibujan su propio progreso en BeeGardenGame.
+        if (FindFirstObjectByType<AbejaRA.BeeGardenGame>() != null) return;
         GameObject hud = new GameObject("ContadorFloresUI");
         hud.AddComponent<ContadorFloresUI>();
     }

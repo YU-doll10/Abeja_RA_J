@@ -5,6 +5,9 @@ public class ContadorFloresUI : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void CrearContador()
     {
+        // These levels already own a collectible counter; keep the Jose1 HUD in its own levels.
+        if (FindFirstObjectByType<AbejaRA.BeeGardenGame>(FindObjectsInactive.Include) != null ||
+            FindFirstObjectByType<AbejaRA.FinalBeeTrial>(FindObjectsInactive.Include) != null) return;
         if (FindFirstObjectByType<ContadorFloresUI>() != null) return;
         // YULI/prinev dibujan su propio progreso en BeeGardenGame.
         if (FindFirstObjectByType<AbejaRA.BeeGardenGame>() != null) return;

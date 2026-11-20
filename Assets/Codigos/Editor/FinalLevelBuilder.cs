@@ -260,7 +260,7 @@ namespace AbejaRA
         public static void Build()
         {
             var scene=EditorSceneManager.GetActiveScene();
-            if(scene.path!="Assets/Terreno YU + dificil.unity")throw new Exception("Abre Terreno YU + dificil antes de generar.");
+            if(scene.path!="Assets/Scenes/Terreno YU + dificil.unity")throw new Exception("Abre Terreno YU + dificil antes de generar.");
             if(GameObject.Find("Nivel_Final_Cumbres_300x300"))throw new Exception("El nivel final ya existe. Se conserva el trabajo actual.");
             System.IO.Directory.CreateDirectory(Folder);AssetDatabase.Refresh();
             root=Group("Nivel_Final_Cumbres_300x300",null);nature=Group("Bosque_JapaneseGarden",root);obstacles=Group("Rocas_y_Bloqueos",root);

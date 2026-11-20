@@ -28,6 +28,16 @@ namespace AbejaRA
         Vector3 visualRest;
         bool[] collected;
         int count;
+        AudioClip flowerSound;
+        AudioSource flowerAudio;
+        const int MaxLives = 3;
+        const float AttemptSeconds = 25f;
+        int lives = MaxLives;
+        float secondsLeft = AttemptSeconds;
+        public int Lives => lives;
+        public float SecondsLeft => secondsLeft;
+        public bool GameOver => lives <= 0;
+        public bool Won => flowers.Length > 0 && count == flowers.Length;
         public Vector3 Target => target;
         public int Collected => count;
         public float GroundHeight(float x,float z)
@@ -38,6 +48,15 @@ namespace AbejaRA
         void Awake()
         {
             Application.runInBackground = true;
+            flowerSound = Resources.Load<AudioClip>("Audio/1campana");
+            flowerAudio = gameObject.AddComponent<AudioSource>();
+            flowerAudio.playOnAwake = false;
+            flowerAudio.loop = false;
+            flowerAudio.spatialBlend = 0f;
+            flowerAudio.bypassEffects = true;
+            flowerAudio.bypassListenerEffects = true;
+            flowerAudio.bypassReverbZones = true;
+            if(flowerSound) flowerSound.LoadAudioData();
             collected = new bool[flowers.Length];
             visualRest = visual.localPosition;
             target = bee.localPosition;
@@ -57,20 +76,31 @@ namespace AbejaRA
         }
         public void SetTarget(Vector3 world)
         {
+            if(GameOver || Won) return;
             var p = garden.InverseTransformPoint(world);
             Vector2 xz = squareBounds ? new Vector2(Mathf.Clamp(p.x,-movementHalfExtents.x,movementHalfExtents.x),Mathf.Clamp(p.z,-movementHalfExtents.y,movementHalfExtents.y)) : Vector2.ClampMagnitude(new Vector2(p.x,p.z),movementHalfExtents.x);
             target = new Vector3(xz.x,GroundHeight(xz.x,xz.y)+hoverHeight,xz.y);
         }
         void Update()
         {
-            if(!placed) return;
+            if(!placed || Time.deltaTime <= 0) return;
+            if(Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame) Restart();
+            if(GameOver || Won) return;
+            secondsLeft = Mathf.Max(0, secondsLeft - Time.deltaTime);
+            if(secondsLeft <= 0)
+            {
+                lives--;
+                target = bee.localPosition;
+                if(lives > 0) ResetAttempt();
+                Refresh();
+                return;
+            }
             Vector2 input = Vector2.zero;
             var k = Keyboard.current;
             if(k != null)
             {
                 input.x = (k.dKey.isPressed || k.rightArrowKey.isPressed ? 1:0) - (k.aKey.isPressed || k.leftArrowKey.isPressed ? 1:0);
                 input.y = (k.wKey.isPressed || k.upArrowKey.isPressed ? 1:0) - (k.sKey.isPressed || k.downArrowKey.isPressed ? 1:0);
-                if(k.rKey.wasPressedThisFrame) Restart();
             }
             if(input.sqrMagnitude > 0) SetTarget(garden.TransformPoint(bee.localPosition + new Vector3(input.x,0,input.y).normalized * keyboardLookahead));
             bool down = false; Vector2 screen = Vector2.zero;
@@ -105,10 +135,13 @@ namespace AbejaRA
                 Vector3 flowerPoint=garden.InverseTransformPoint(flowers[i].position);
                 if(collected[i] || Vector2.Distance(new Vector2(bee.localPosition.x,bee.localPosition.z),new Vector2(flowerPoint.x,flowerPoint.z))>collectRadius) continue;
                 collected[i]=true; count++;
+                if(flowerSound) flowerAudio.PlayOneShot(flowerSound,1.4f);
                 var glow = flowers[i].Find("Nectar");
                 if(glow) glow.gameObject.SetActive(false);
+                flowers[i].gameObject.SetActive(false);
                 Refresh();
             }
+            Refresh();
         }
         public bool OverUI(Vector2 point)
         {
@@ -120,8 +153,14 @@ namespace AbejaRA
         }
         public void Restart()
         {
+            lives=MaxLives;
+            ResetAttempt();
+        }
+        void ResetAttempt()
+        {
+            secondsLeft=AttemptSeconds;
             count=0;
-            for(int i=0;i<flowers.Length;i++) { collected[i]=false; var n=flowers[i].Find("Nectar"); if(n)n.gameObject.SetActive(true); }
+            for(int i=0;i<flowers.Length;i++) { collected[i]=false; flowers[i].gameObject.SetActive(true); var n=flowers[i].Find("Nectar"); if(n)n.gameObject.SetActive(true); }
             bee.localPosition=new Vector3(spawnPosition.x,GroundHeight(spawnPosition.x,spawnPosition.z)+hoverHeight,spawnPosition.z); target=bee.localPosition;
             Refresh();
         }
@@ -132,8 +171,12 @@ namespace AbejaRA
         }
         public void Refresh()
         {
-            if(score) score.text = count.ToString("00") + " / " + flowers.Length.ToString("00") + "   FLORES";
-            if(status) status.text = !placed ? "Mueve el móvil para detectar una mesa. Toca para colocar el jardín." : count == flowers.Length ? "¡Jardín polinizado! Pulsa Reiniciar para volver a jugar." : "Toca el jardín para guiar a tu abeja hasta cada flor.";
+            if(score) score.text = "FLORES RECOLECTADAS: " + count + " / " + flowers.Length
+                + "\nVIDAS: " + lives + " / " + MaxLives + "    TIEMPO: " + Mathf.CeilToInt(secondsLeft) + " s";
+            if(status) status.text = !placed ? "Mueve el móvil para detectar una mesa. Toca para colocar el jardín."
+                : GameOver ? "SIN VIDAS. No recogiste las 6 flores a tiempo. Pulsa Reiniciar."
+                : Won ? "¡Ganaste! Recogiste las 6 flores a tiempo. Pulsa Reiniciar para volver a jugar."
+                : "Recoge las 6 flores en 25 segundos. Intento " + (MaxLives-lives+1) + " de 3.";
         }
     }
 }

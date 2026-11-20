@@ -7609,7 +7609,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "Toca el jard\xEDn para guiar a tu abeja hasta cada flor."
+  m_Text: "Mueve el m\xF3vil para detectar una mesa. Toca para colocar el jard\xEDn."
 --- !u!222 &1205222800
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -8160,7 +8160,9 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: 00 / 06   FLORES
+  m_Text: 'FLORES RECOLECTADAS: 0 / 6
+
+    VIDAS: 3 / 3    TIEMPO: 25 s'
 --- !u!222 &1362359762
 CanvasRenderer:
   m_ObjectHideFlags: 0

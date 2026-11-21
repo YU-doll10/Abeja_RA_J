@@ -30,6 +30,8 @@ namespace AbejaRA
         Vector3 cameraVelocity;
         readonly RaycastHit[] cameraHits = new RaycastHit[16];
         Text progress, clock, hint, objective;
+        AudioClip flowerSound;
+        AudioSource flowerAudio;
         GameObject resultPanel;
         Text resultText;
         float messageUntil;
@@ -39,12 +41,23 @@ namespace AbejaRA
         float fallElapsed, fallStartY, fallEndY;
         Vector3 fallStartPosition, fallEndPosition;
         const float FallDuration = 1.15f;
+        const int MaxWaterRespawns = 5;
         Transform returnTarget;
 
         void Start()
         {
             body = GetComponent<CharacterController>(); visualRest = visual.localPosition;
             visualRestRotation = visual.localRotation;
+            flowerSound = Resources.Load<AudioClip>("Audio/1campana");
+            flowerAudio = GetComponent<AudioSource>();
+            if (!flowerAudio) flowerAudio = gameObject.AddComponent<AudioSource>();
+            flowerAudio.playOnAwake = false;
+            flowerAudio.loop = false;
+            flowerAudio.spatialBlend = 0f;
+            flowerAudio.bypassEffects = true;
+            flowerAudio.bypassListenerEffects = true;
+            flowerAudio.bypassReverbZones = true;
+            if (flowerSound) flowerSound.LoadAudioData();
             BuildHUD(); RestartTrial();
             Application.runInBackground = true;
         }
@@ -95,16 +108,17 @@ namespace AbejaRA
         {
             if (Time.time < respawnUntil || Finished) return;
             IsFalling = false;
-            Falls++; Remaining = Mathf.Max(0, Remaining - 12);
+            Remaining = Mathf.Max(0, Remaining - 12);
             body.enabled = false; transform.position = Checkpoint; body.enabled = true;
             visual.localPosition = visualRest; visual.localRotation = visualRestRotation;
             cameraVelocity = Vector3.zero;
             respawnUntil = Time.time + 1;
-            Message("¡Corriente peligrosa! Vuelves al refugio. Penalización: 12 segundos.", 5);
+            Message("¡Corriente peligrosa! Vuelves al refugio. Caídas: " + Falls + "/6. Penalización: 12 segundos.", 5);
         }
         void BeginFall()
         {
             if (IsFalling || Time.time < respawnUntil) return;
+            Falls++;
             IsFalling = true; fallElapsed = 0; fallStartY = transform.position.y;
             fallStartPosition = transform.position;
             bool second = Mathf.Abs(transform.position.z - StreamCenter(transform.position.x, true))
@@ -114,7 +128,9 @@ namespace AbejaRA
             fallEndPosition = fallStartPosition;
             fallEndPosition.z = Mathf.MoveTowards(fallStartPosition.z, StreamCenter(fallStartPosition.x, second), 2.5f);
             body.enabled = false;
-            Message("¡CAÍSTE AL AGUA! La corriente te devuelve al último refugio.", 2);
+            Message(Falls <= MaxWaterRespawns
+                ? "¡CAÍSTE AL AGUA! Reaparición " + Falls + "/5; puedes reaparecer cinco veces."
+                : "¡SEXTA CAÍDA! Ya no quedan vidas.", 2);
             Debug.Log("[Nivel Final] Caída al agua iniciada en " + transform.position);
         }
         void TickFall(float dt)
@@ -125,7 +141,11 @@ namespace AbejaRA
             p.y = Mathf.Lerp(fallStartY, fallEndY, t * t);
             transform.position = p;
             visual.localRotation = Quaternion.Euler(t * 100, 0, Mathf.Sin(t * Mathf.PI) * 25);
-            if (t >= 1) Respawn();
+            if (t >= 1)
+            {
+                if (Falls > MaxWaterRespawns) End(false, true);
+                else Respawn();
+            }
         }
         void Update()
         {
@@ -155,6 +175,7 @@ namespace AbejaRA
             if (!ReturningToPath && Collected < flowers.Length && Vector3.Distance(transform.position, flowers[Collected].position + Vector3.up * 2.1f) < 3.8f)
             {
                 flowers[Collected].Find("Baliza").gameObject.SetActive(false);
+                if (flowerSound && flowerAudio) flowerAudio.PlayOneShot(flowerSound, 1.4f);
                 int previous = Collected;
                 Collected++;
                 if (returnPoints != null && previous < returnPoints.Length && returnPoints[previous])
@@ -228,17 +249,20 @@ namespace AbejaRA
         void Message(string text, float seconds) { if (hint) hint.text = text; messageUntil = Time.time + seconds; }
         void Refresh()
         {
-            progress.text = "FLORES  " + Collected.ToString("00") + " / " + flowers.Length.ToString("00");
+            progress.text = "FLORES  " + Collected.ToString("00") + " / " + flowers.Length.ToString("00")
+                + "\nCAÍDAS  " + Falls.ToString("0") + " / 6";
             int seconds = Mathf.CeilToInt(Remaining);
             clock.text = (seconds / 60).ToString("00") + ":" + (seconds % 60).ToString("00");
             if (ReturningToPath) objective.text = "REGRESA AL SENDERO  ·  BALIZA AZUL  ·  " + Mathf.RoundToInt(Vector3.Distance(transform.position, returnTarget.position)) + " m";
             else if (Collected < flowers.Length) objective.text = "SIGUIENTE FLOR  " + (Collected + 1) + "  ·  " + Mathf.RoundToInt(Vector3.Distance(transform.position, flowers[Collected].position)) + " m";
             if (Time.time > messageUntil) hint.text = "WASD / flechas: mover   ·   Escape: pausa   ·   R: reiniciar   |   Los puentes son la única ruta segura sobre el agua.";
         }
-        void End(bool won)
+        void End(bool won, bool noLives = false)
         {
             Finished = true; resultPanel.SetActive(true);
-            resultText.text = won ? "¡ÚLTIMO NIVEL COMPLETADO!\nTodas las flores están polinizadas.\nCaídas: " + Falls : "SE ACABÓ EL TIEMPO\nLos refugios y las balizas te ayudarán a mejorar tu ruta.";
+            resultText.text = won ? "¡ÚLTIMO NIVEL COMPLETADO!\nTodas las flores están polinizadas.\nCaídas: " + Falls
+                : noLives ? "¡SIN VIDAS!\nLa abeja cayó al agua seis veces.\nPulsa Reintentar para comenzar de nuevo."
+                : "SE ACABÓ EL TIEMPO\nLos refugios y las balizas te ayudarán a mejorar tu ruta.";
             resultPanel.GetComponentInChildren<Button>().GetComponentInChildren<Text>().text = "REINTENTAR";
         }
         RectTransform Rect(string name, Transform parent, Vector2 anchor, Vector2 position, Vector2 size)
